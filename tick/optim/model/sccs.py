@@ -38,7 +38,7 @@ class ModelSCCS(ModelFirstOrder, ModelLipschitz):
         [1, n_intervals]. If the value i is equal to n_intervals, then there
         is no censoring for sample i. If censoring = c < n_intervals, then
         the observation of sample i is stopped at interval c, that is, the
-        row c - 1 of the correponding matrix. The last n_intervals - c rows
+        row c - 1 of the corresponding matrix. The last n_intervals - c rows
         are then set to 0.
 
     n_samples : `int` (read-only)
@@ -143,9 +143,14 @@ class ModelSCCS(ModelFirstOrder, ModelLipschitz):
             row c - 1 of the correponding matrix. The last n_intervals - c rows
             are then set to 0.
         """
-        n_intervals, n_features = features[0].shape
+        n_intervals, n_coeffs = features[0].shape
+        n_lags = self.n_lags
         self._set("n_intervals", n_intervals)
-        self._set("n_features", n_features)
+        self._set("n_coeffs", n_coeffs)
+        if n_lags > 0 and n_coeffs % (n_lags + 1) != 0:
+            raise ValueError("(n_lags + 1) should be a divisor of n_coeffs")
+        else:
+            self._set("n_features", int(n_coeffs / (n_lags + 1)))
         self._set("n_samples", len(features))
         if len(labels) != self.n_samples:
             raise ValueError("Features and labels lists should have the same\
@@ -156,7 +161,7 @@ class ModelSCCS(ModelFirstOrder, ModelLipschitz):
         censoring = check_censoring_consistency(censoring, self.n_samples)
         features = check_longitudinal_features_consistency(features,
                                                            (n_intervals,
-                                                            n_features),
+                                                            n_coeffs),
                                                            "float64")
         labels = check_longitudinal_features_consistency(labels,
                                                          (self.n_intervals,),

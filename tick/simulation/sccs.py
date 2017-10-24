@@ -89,7 +89,6 @@ class SimuSCCS(Simu):
         
     Examples
     --------
-    >>> import numpy as np
     >>> from tick.simulation import SimuSCCS
     >>> sim = SimuSCCS(n_samples=2, n_intervals=3, n_features=2, n_lags=2,
     ... seed=42, sparse=False, exposure_type="short")
@@ -147,11 +146,17 @@ class SimuSCCS(Simu):
         self.sparse = sparse
         self.first_tick_only = first_tick_only
         self.censoring = censoring
+        self._exposure_type = None
         self.exposure_type = exposure_type
+        self._distribution = distribution
         self.distribution = distribution
+        self._censoring_prob = None
         self.censoring_prob = censoring_prob
+        self._censoring_intensity = None
         self.censoring_intensity = censoring_intensity
+        self._coeffs = None
         self.coeffs = coeffs
+        self._batch_size = None
         self.batch_size = batch_size
 
     def simulate(self):
@@ -272,19 +277,19 @@ class SimuSCCS(Simu):
         return exposures
 
     def _simulate_outcomes(self, features, censoring):
-        features = LongitudinalFeaturesLagger(n_lags=self.n_lags).\
+        features, _, _ = LongitudinalFeaturesLagger(n_lags=self.n_lags).\
             fit_transform(features, censoring)
 
         if self.distribution == "poisson":
             y = self._simulate_outcome_from_poisson(features, self.coeffs,
                                                     self.first_tick_only)
         else:
-            y = self._simulate_outcome_from_multi(features, self.coeffs,)
+            y = self._simulate_outcome_from_multi(features, self.coeffs)
         return y
 
     @staticmethod
     def _simulate_outcome_from_multi(features, coeffs):
-        dot_products = [f.dot(coeffs) for f in features]
+        dot_products = [feat.dot(coeffs) for feat in features]
 
         def sim(dot_prod):
             dot_prod -= dot_prod.max()
@@ -352,6 +357,7 @@ class SimuSCCS(Simu):
 
         return [censor(l, censoring[i]) for i, l in enumerate(array_list)]
 
+    # TODO: replace this method by LongitudinalSamplesFilter preprocessor
     @staticmethod
     def _filter_non_positive_samples(features, labels, censoring):
         """Filter out samples which don't tick in the observation window.

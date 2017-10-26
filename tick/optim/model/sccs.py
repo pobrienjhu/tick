@@ -24,16 +24,16 @@ class ModelSCCS(ModelFirstOrder, ModelLipschitz):
     Attributes
     ----------
     features : `list` of `numpy.ndarray` or `list` of `scipy.sparse.csr_matrix`,
-        list of length n_samples, each element of the list of
+        list of length n_cases, each element of the list of
         shape=(n_intervals, n_features)
         The list of features matrices.
 
     labels : `list` of `numpy.ndarray`,
-        list of length n_samples, each element of the list of 
+        list of length n_cases, each element of the list of
         shape=(n_intervals,)
         The labels vector
         
-    censoring : `numpy.ndarray`, shape=(n_samples,), dtype="uint64"
+    censoring : `numpy.ndarray`, shape=(n_cases,), dtype="uint64"
         The censoring data. This array should contain integers in
         [1, n_intervals]. If the value i is equal to n_intervals, then there
         is no censoring for sample i. If censoring = c < n_intervals, then
@@ -64,7 +64,7 @@ class ModelSCCS(ModelFirstOrder, ModelLipschitz):
         "n_features": {
             "writable": False
         },
-        "n_samples": {
+        "n_cases": {
             "writable": False
         },
         "n_lags": {
@@ -101,7 +101,7 @@ class ModelSCCS(ModelFirstOrder, ModelLipschitz):
         labels : List[{1d array, csr matrix of shape (n_intervals,)]
             The labels vector
             
-        censoring : 1d array of shape (n_samples,)
+        censoring : 1d array of shape (n_cases,)
             The censoring vector
 
         Returns
@@ -126,16 +126,16 @@ class ModelSCCS(ModelFirstOrder, ModelLipschitz):
         Parameters
         ----------
         features : `list` of `numpy.ndarray` or `list` of `scipy.sparse.csr_matrix`,
-            list of length n_samples, each element of the list of
+            list of length n_cases, each element of the list of
             shape=(n_intervals, n_features)
             The list of features matrices.
 
         labels : `list` of `numpy.ndarray`,
-            list of length n_samples, each element of the list of 
+            list of length n_cases, each element of the list of
             shape=(n_intervals,)
             The labels vector
         
-        censoring : `numpy.ndarray`, shape=(n_samples,), dtype="uint64"
+        censoring : `numpy.ndarray`, shape=(n_cases,), dtype="uint64"
             The censoring data. This array should contain integers in
             [1, n_intervals]. If the value i is equal to n_intervals, then there
             is no censoring for sample i. If censoring = c < n_intervals, then
@@ -151,7 +151,7 @@ class ModelSCCS(ModelFirstOrder, ModelLipschitz):
             raise ValueError("(n_lags + 1) should be a divisor of n_coeffs")
         else:
             self._set("n_features", int(n_coeffs / (n_lags + 1)))
-        self._set("n_samples", len(features))
+        self._set("n_cases", len(features))
         if len(labels) != self.n_samples:
             raise ValueError("Features and labels lists should have the same\
              length.")

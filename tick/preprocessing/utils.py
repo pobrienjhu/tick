@@ -46,7 +46,7 @@ def check_longitudinal_features_consistency(X, shape, dtype):
     Parameters
     ----------
     X : list of np.ndarray or list of scipy.sparse.csr_matrix,
-        list of length n_samples, each element of the list of 
+        list of length n_cases, each element of the list of
         shape=(n_intervals, n_features)
         The list of features matrices.
 
@@ -59,7 +59,7 @@ def check_longitudinal_features_consistency(X, shape, dtype):
     Returns
     -------
     output : list of np.ndarray or list of scipy.sparse.csr_matrix,
-        list of length n_samples, each element of the list of 
+        list of length n_cases, each element of the list of
         shape=(n_intervals, n_features)
         The list of features matrices with corrected shapes and dtypes.
     """
@@ -74,7 +74,7 @@ def check_censoring_consistency(censoring, n_samples):
     
     Parameters
     ----------
-    censoring : `np.ndarray`, shape=(n_samples, 1), dtype="uint64"
+    censoring : `np.ndarray`, shape=(n_cases, 1), dtype="uint64"
         The censoring data.
         Cf. tick.preprocessing.LongitudinalFeaturesLagger
             
@@ -83,7 +83,7 @@ def check_censoring_consistency(censoring, n_samples):
         
     Returns
     -------
-    output : `np.ndarray`, shape=(n_samples, 1), dtype="uint64"
+    output : `np.ndarray`, shape=(n_cases, 1), dtype="uint64"
         The censoring data with right shape and dtype.
     
     """

@@ -13,10 +13,10 @@ class LongitudinalFeaturesLagger(LongitudinalPreprocessor):
     """Transforms longitudinal exposure features to add columns representing
     lagged features.
 
-    This preprocessor transform an input list of `n_samples` numpy ndarrays or
+    This preprocessor transform an input list of `n_cases` numpy ndarrays or
     scipy.sparse.csr_matrices of shape `(n_intervals, n_features)` so as to
     add columns representing the lagged exposures. It outputs a list of
-    `n_samples` numpy arrays or  csr_matrices of shape
+    `n_cases` numpy arrays or  csr_matrices of shape
     `(n_intervals, n_features * (n_lags + 1))`.
 
     Exposure can take two forms:
@@ -113,11 +113,11 @@ class LongitudinalFeaturesLagger(LongitudinalPreprocessor):
         Parameters
         ----------
         features : `list` of `numpy.ndarray` or `list` of `scipy.sparse.csr_matrix`,
-            list of length n_samples, each element of the list of
+            list of length n_cases, each element of the list of
             shape=(n_intervals, n_features)
             The list of features matrices.
 
-        censoring : `numpy.ndarray`, shape=(n_samples,), dtype="uint64"
+        censoring : `numpy.ndarray`, shape=(n_cases,), dtype="uint64"
             The censoring data. This array should contain integers in
             [1, n_intervals]. If the value i is equal to n_intervals, then there
             is no censoring for sample i. If censoring = c < n_intervals, then
@@ -154,11 +154,11 @@ class LongitudinalFeaturesLagger(LongitudinalPreprocessor):
         Parameters
         ----------
         features : `list` of `numpy.ndarray` or `list` of `scipy.sparse.csr_matrix`,
-            list of length n_samples, each element of the list of
+            list of length n_cases, each element of the list of
             shape=(n_intervals, n_features)
             The list of features matrices.
 
-        censoring : `numpy.ndarray`, shape=(n_samples,), dtype='uint64', default='None'
+        censoring : `numpy.ndarray`, shape=(n_cases,), dtype='uint64', default='None'
             The censoring data. This array should contain integers in
             [1, n_intervals]. If the value i is equal to n_intervals, then there
             is no censoring for sample i. If censoring = c < n_intervals, then

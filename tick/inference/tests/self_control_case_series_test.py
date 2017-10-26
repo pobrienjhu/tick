@@ -12,7 +12,7 @@ class Test(InferenceTest):
                                        .8, .5]))
         n_features = int(len(self.coeffs) / (self.n_lags + 1))
         # Create data
-        sim = SimuSCCS(n_samples=500, n_intervals=10, n_features=n_features,
+        sim = SimuSCCS(n_cases=500, n_intervals=10, n_features=n_features,
                        n_lags=self.n_lags, verbose=False, seed=self.seed,
                        coeffs=self.coeffs)
         self.features, self.labels, self.censoring, self.coeffs = sim.simulate()
@@ -48,7 +48,7 @@ class Test(InferenceTest):
         # TODO: a case with infinite features
         seed = 42
         n_lags = 2
-        sim = SimuSCCS(n_samples=500, n_intervals=7, n_features=2,
+        sim = SimuSCCS(n_cases=500, n_intervals=7, n_features=2,
                        n_lags=n_lags, verbose=False, seed=seed,
                        exposure_type='short')
         features, labels, censoring, coeffs = sim.simulate()

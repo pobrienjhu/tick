@@ -15,10 +15,10 @@ class LongitudinalFeaturesProduct(LongitudinalPreprocessor):
     """Transforms longitudinal exposure features to add the corresponding
     product features. 
 
-    This preprocessor transform an input list of `n_samples` numpy arrays or 
+    This preprocessor transform an input list of `n_cases` numpy arrays or
     csr_matrices of shape `(n_intervals, n_features)` so as to add columns
     representing the product of combination of two features. It outputs a list
-    of `n_samples` numpy arrays or  csr_matrices of shape `(n_intervals, 
+    of `n_cases` numpy arrays or  csr_matrices of shape `(n_intervals,
     n_features + comb(n_features, 2))`.
 
     Exposure can take two forms:
@@ -116,7 +116,7 @@ class LongitudinalFeaturesProduct(LongitudinalPreprocessor):
         Parameters
         ----------
         features : list of numpy.ndarray or list of scipy.sparse.csr_matrix,
-            list of length n_samples, each element of the list of 
+            list of length n_cases, each element of the list of
             shape=(n_intervals, n_features)
             The list of features matrices.
 
@@ -155,14 +155,14 @@ class LongitudinalFeaturesProduct(LongitudinalPreprocessor):
         Parameters
         ----------
         features : list of numpy.ndarray or list of scipy.sparse.csr_matrix,
-            list of length n_samples, each element of the list of 
+            list of length n_cases, each element of the list of
             shape=(n_intervals, n_features)
             The list of features matrices.
 
         Returns
         -------
         output : list of numpy.ndarray or list of scipy.sparse.csr_matrix,
-            list of length n_samples, each element of the list of 
+            list of length n_cases, each element of the list of
             shape=(n_intervals, n_new_features)
             The list of features matrices with added product features. 
             n_new_features = n_features + comb(n_features, 2)

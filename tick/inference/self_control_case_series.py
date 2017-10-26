@@ -117,16 +117,16 @@ class LearnerSCCS(ABC, Base):
         Parameters
         ----------
         features : `list` of `numpy.ndarray` or `list` of `scipy.sparse.csr_matrix`,
-            list of length n_samples, each element of the list of
+            list of length n_cases, each element of the list of
             shape=(n_intervals, n_features)
             The list of features matrices.
 
         labels : `list` of `numpy.ndarray`,
-            list of length n_samples, each element of the list of
+            list of length n_cases, each element of the list of
             shape=(n_intervals,)
             The labels vector
 
-        censoring : `numpy.ndarray`, shape=(n_samples,), dtype="uint64"
+        censoring : `numpy.ndarray`, shape=(n_cases,), dtype="uint64"
             The censoring data. This array should contain integers in
             [1, n_intervals]. If the value i is equal to n_intervals, then there
             is no censoring for sample i. If censoring = c < n_intervals, then
@@ -172,16 +172,16 @@ class LearnerSCCS(ABC, Base):
         Parameters
         ----------
         features : `None` or `list` of `numpy.ndarray` or `list` of `scipy.sparse.csr_matrix`,
-            list of length n_samples, each element of the list of
+            list of length n_cases, each element of the list of
             shape=(n_intervals, n_features)
             The list of features matrices.
 
         labels : `None` or `list` of `numpy.ndarray`,
-            list of length n_samples, each element of the list of
+            list of length n_cases, each element of the list of
             shape=(n_intervals,)
             The labels vector
 
-        censoring : `None` or `numpy.ndarray`, shape=(n_samples,), dtype="uint64"
+        censoring : `None` or `numpy.ndarray`, shape=(n_cases,), dtype="uint64"
             The censoring data. This array should contain integers in
             [1, n_intervals]. If the value i is equal to n_intervals, then there
             is no censoring for sample i. If censoring = c < n_intervals, then
@@ -360,7 +360,7 @@ class LearnerSCCS(ABC, Base):
         bootstrap_coeffs = []
         # TODO: parallelize bootstrap (SimuSCCS and _refit should be pickable...)
         for k in range(rep):
-            y = SimuSCCS._simulate_outcome_from_multi(p_features, refit_coeffs)
+            y = SimuSCCS._simulate_multinomial_outcomes(p_features, refit_coeffs)
             bootstrap_coeffs.append(
                 self._refit(p_features, y, p_censoring, prox))
 

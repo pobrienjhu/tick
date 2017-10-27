@@ -11,11 +11,13 @@ class Test(InferenceTest):
         self.coeffs = np.log(np.array([2.1, 2.5,
                                        .8, .5]))
         n_features = int(len(self.coeffs) / (self.n_lags + 1))
+        self.n_correlations = min(2, n_features - 1)
         # Create data
         sim = SimuSCCS(n_cases=500, n_intervals=10, n_features=n_features,
                        n_lags=self.n_lags, verbose=False, seed=self.seed,
-                       coeffs=self.coeffs)
-        self.features, self.labels, self.censoring, self.coeffs = sim.simulate()
+                       coeffs=self.coeffs, n_correlations=self.n_correlations)
+        _, self.features, self.labels, self.censoring, self.coeffs =\
+            sim.simulate()
 
     def test_LearnerSCCS_coefficient_groups(self):
         coeffs = np.ones((4, 5))
@@ -38,8 +40,8 @@ class Test(InferenceTest):
         lrn = LearnerSCCS(n_lags=self.n_lags, strength=(0, 0),
                           verbose=True, penalty="None",
                           feature_products=True)
-        X, y, c = lrn._preprocess_data(self.features, self.labels,
-                                       self.censoring)
+        features, y, c = lrn._preprocess_data(self.features, self.labels,
+                                                 self.censoring)
         # TODO: Check on small dummy data that preprocessing is working
         # TODO: fix feature products test
         pass
@@ -48,10 +50,10 @@ class Test(InferenceTest):
         # TODO: a case with infinite features
         seed = 42
         n_lags = 2
-        sim = SimuSCCS(n_cases=500, n_intervals=7, n_features=2,
+        sim = SimuSCCS(n_cases=800, n_intervals=10, n_features=2,
                        n_lags=n_lags, verbose=False, seed=seed,
-                       exposure_type='short')
-        features, labels, censoring, coeffs = sim.simulate()
+                       exposure_type='multiple_exposures')
+        features, _, labels, censoring, coeffs = sim.simulate()
         lrn = LearnerSCCS(n_lags=n_lags, penalty="None", tol=0,
                           max_iter=10, verbose=False, strength=(0, 0),
                           random_state=seed, feature_type='short')
@@ -86,12 +88,12 @@ class Test(InferenceTest):
         lrn.fit(self.features, self.labels, self.censoring)
         score = lrn.score()
         from itertools import product
-        tv_strength = np.logspace(-4, -2, 3)
-        groupl1_strength = np.logspace(-4, -2, 2)
+        tv_strength = np.logspace(-5, -1, 5)
+        groupl1_strength = np.logspace(-6, -2, 2)
         # TODO: put this into the fit_kfold_cv method
         cv_params = list(product(tv_strength, groupl1_strength))
         lrn.fit_kfold_cv(self.features, self.labels, self.censoring,
-                         strength_list=cv_params)
+                         strength_list=cv_params, soft_cv=False)
         self.assertTrue(lrn.score() <= score)
 
     def test_LearnerSCCS_settings(self):

@@ -35,6 +35,7 @@ class LearnerSCCS(ABC, Base):
         'feature_type',
         '_random_state',
         # computed attributes
+        'n_cases',
         'n_intervals',
         'n_features',
         'n_coeffs',
@@ -68,6 +69,7 @@ class LearnerSCCS(ABC, Base):
         self._allowed_penalties.sort()
 
         # Init objects to be computed later
+        self.n_cases = None
         self.n_intervals = None
         self.n_features = None
         self.n_coeffs = None
@@ -297,6 +299,7 @@ class LearnerSCCS(ABC, Base):
         n_coeffs = self.n_features * (self.n_lags + 1) if self.n_lags > 0 \
             else self.n_features
         self._set('n_coeffs', n_coeffs)
+        self._set('n_cases', len(features))
 
         # Step computation
         self._set("_model_obj", self._construct_model_obj())
@@ -358,9 +361,11 @@ class LearnerSCCS(ABC, Base):
         refit_coeffs = self._refit(p_features, p_labels, p_censoring, prox)
 
         bootstrap_coeffs = []
+        sim = SimuSCCS(self.n_cases, self.n_intervals, self.n_features,
+                       self.n_lags)
         # TODO: parallelize bootstrap (SimuSCCS and _refit should be pickable...)
         for k in range(rep):
-            y = SimuSCCS._simulate_multinomial_outcomes(p_features, refit_coeffs)
+            y = sim._simulate_multinomial_outcomes(p_features, refit_coeffs)
             bootstrap_coeffs.append(
                 self._refit(p_features, y, p_censoring, prox))
 
@@ -585,11 +590,11 @@ class CrossValidationTracker:
                                        adjusted_scores + max_score)
             # TODO: make sure the scores and so on are sorted by penalty values
             # Select min on the "smaller" penalty side
-            if pick_smaller_pen:
+            if pick_smaller_pen and best_idx > 0:
                 adjusted_scores = adjusted_scores[:best_idx]
                 best_idx = np.argmin(adjusted_scores)
             # Select min on the "smaller" penalty side
-            else:
+            elif not pick_smaller_pen and best_idx < len(adjusted_scores):
                 adjusted_scores = adjusted_scores[best_idx:]
                 best_idx += np.argmin(adjusted_scores)
             # If there is more than one min

@@ -84,16 +84,17 @@ class Test(InferenceTest):
 
     def test_LearnerSCCS_fit_KFold_CV(self):
         lrn = LearnerSCCS(n_lags=self.n_lags, verbose=False,
-                          random_state=self.seed, penalty="TV-GroupL1")
+                          random_state=self.seed, penalty="TV-GroupL1",
+                          strength=(1e-3, 1e-2))
         lrn.fit(self.features, self.labels, self.censoring)
         score = lrn.score()
         from itertools import product
-        tv_strength = np.logspace(-5, -1, 5)
-        groupl1_strength = np.logspace(-6, -2, 2)
+        tv_strength = np.logspace(-5, -1, 3)
+        groupl1_strength = np.logspace(-5, -1, 3)
         # TODO: put this into the fit_kfold_cv method
         cv_params = list(product(tv_strength, groupl1_strength))
         lrn.fit_kfold_cv(self.features, self.labels, self.censoring,
-                         strength_list=cv_params, soft_cv=False)
+                         strength_list=cv_params, soft_cv=True)
         self.assertTrue(lrn.score() <= score)
 
     def test_LearnerSCCS_settings(self):

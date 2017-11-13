@@ -37,9 +37,8 @@ class Test(InferenceTest):
 
     def test_LearnerSCCS_preprocess(self):
         # Just check that the preprocessing is running quickly
-        lrn = LearnerSCCS(n_lags=self.n_lags, strength=(0, 0),
-                          verbose=True, penalty="None",
-                          feature_products=True)
+        lrn = LearnerSCCS(n_lags=self.n_lags, verbose=False,
+                          penalty="None", feature_products=True)
         features, y, c = lrn._preprocess_data(self.features, self.labels,
                                                  self.censoring)
         # TODO: Check on small dummy data that preprocessing is working
@@ -55,7 +54,7 @@ class Test(InferenceTest):
                        exposure_type='multiple_exposures')
         features, _, labels, censoring, coeffs = sim.simulate()
         lrn = LearnerSCCS(n_lags=n_lags, penalty="None", tol=0,
-                          max_iter=10, verbose=False, strength=(0, 0),
+                          max_iter=10, verbose=False,
                           random_state=seed, feature_type='short')
         estimated_coeffs, _ = lrn.fit(features, labels, censoring)
         np.testing.assert_almost_equal(estimated_coeffs, coeffs, decimal=1)
@@ -67,7 +66,7 @@ class Test(InferenceTest):
                                                             self.labels,
                                                             self.censoring)
         bootstrap_ci = lrn._bootstrap(p_features, p_labels, p_censoring,
-                                      5, .95)
+                                      5, .90)
         self.assertTrue(np.all(bootstrap_ci.lower_bound <= coeffs),
                         "lower bound of the confidence interval\
                                should be <= coeffs")
@@ -85,16 +84,19 @@ class Test(InferenceTest):
     def test_LearnerSCCS_fit_KFold_CV(self):
         lrn = LearnerSCCS(n_lags=self.n_lags, verbose=False,
                           random_state=self.seed, penalty="TV-GroupL1",
-                          strength=(1e-3, 1e-2))
+                          strength_tv=1e-1, strength_group_l1=1e-1,
+                          time_drift=False)
         lrn.fit(self.features, self.labels, self.censoring)
         score = lrn.score()
-        from itertools import product
-        tv_strength = np.logspace(-5, -1, 3)
-        groupl1_strength = np.logspace(-5, -1, 3)
+        # TODO: put the product part in class
+        tv_range = (-5, -1)
+        groupl1_range = (-5, -1)
         # TODO: put this into the fit_kfold_cv method
-        cv_params = list(product(tv_strength, groupl1_strength))
         lrn.fit_kfold_cv(self.features, self.labels, self.censoring,
-                         strength_list=cv_params, soft_cv=True)
+                         strength_tv_range=tv_range,
+                         strength_group_l1_range=groupl1_range, n_cv_iter=4,
+                         soft_cv=False)
+
         self.assertTrue(lrn.score() <= score)
 
     def test_LearnerSCCS_settings(self):

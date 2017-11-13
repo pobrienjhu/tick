@@ -15,10 +15,17 @@ from tick.preprocessing import LongitudinalSamplesFilter, \
     LongitudinalFeaturesLagger
 from tick.preprocessing.base import LongitudinalPreprocessor
 import scipy.sparse as sps
+from scipy.stats import uniform
 
 Bootstrap_CI = namedtuple('Bootstrap_CI', ['refit_coeffs', 'median',
                                            'lower_bound', 'upper_bound',
                                            'confidence'])
+
+DumbGenerator = namedtuple('DumbGenerator', ['rvs'])
+null_generator = DumbGenerator(rvs=lambda x: [None])
+
+Strengths = namedtuple('Strengths', ['strength_tv', 'strength_group_l1',
+                                     'strength_time_drift'])
 
 
 class LearnerSCCS(ABC, Base):
@@ -33,6 +40,7 @@ class LearnerSCCS(ABC, Base):
         '_penalty',
         '_strength_tv',
         '_strength_group_l1',
+        '_strength_time_drift',
         'feature_products',
         'feature_type',
         '_random_state',
@@ -60,7 +68,8 @@ class LearnerSCCS(ABC, Base):
 
     # TODO later: _prefit, _fit, _postfit for generic CV
     def __init__(self, n_lags: int = 0, penalty: str = 'None',
-                 strength: tuple = (0, 0), time_drift=False,
+                 strength_tv=None, strength_group_l1=None,
+                 strength_time_drift_tv=None, time_drift=False,
                  feature_products: bool = False, feature_type: str = 'infinite',
                  step: float = None, tol: float = 1e-5, max_iter: int = 100,
                  verbose: bool = False, print_every: int = 10,
@@ -94,8 +103,11 @@ class LearnerSCCS(ABC, Base):
         self.penalty = penalty
         self._strength_tv = None
         self._strength_group_l1 = None
+        self._strength_time_drift = None
         # TODO later: doc for strength or refactoring
-        self.strength = strength
+        self.strength_tv = strength_tv
+        self.strength_group_l1 = strength_group_l1
+        self.strength_time_drift = strength_time_drift_tv
         self.time_drift = time_drift  # TODO later: property?
         self.feature_products = feature_products
         self.feature_type = feature_type
@@ -210,9 +222,12 @@ class LearnerSCCS(ABC, Base):
 
         return self._score(features, labels, censoring, preprocess=True)
 
-    def fit_kfold_cv(self, features, labels, censoring, strength_list: list,
+    def fit_kfold_cv(self, features, labels, censoring,
+                     strength_tv_range: tuple=(),
+                     strength_group_l1_range: tuple=(),
+                     strength_time_drift_range: tuple=(), logspace=True,
+                     soft_cv: bool = True, n_cv_iter: int= 100,
                      n_splits: int = 3, shuffle: bool = True,
-                     soft_cv: bool = True,
                      bootstrap: bool = False, bootstrap_rep: int = 200,
                      bootstrap_confidence: float = .95):
         # TODO later: doc
@@ -237,9 +252,15 @@ class LearnerSCCS(ABC, Base):
         }
         cv_tracker = CrossValidationTracker(model_global_parameters)
         # TODO later: parallelize CV
-        for strength in strength_list:
+        generators = self._construct_generator_obj(strength_tv_range,
+                                                   strength_group_l1_range,
+                                                   strength_time_drift_range,
+                                                   logspace)
+
+        i = 0
+        while i < n_cv_iter:
             self._set('coeffs', np.zeros(self.n_coeffs))
-            self._set("strength", strength)
+            self.__strengths = [g.rvs(1)[0] for g in generators]
             prox_obj = self._construct_prox_obj(self.penalty, self.coeffs)
 
             train_scores = []
@@ -258,16 +279,17 @@ class LearnerSCCS(ABC, Base):
                 train_scores.append(self._score())
                 test_scores.append(self._score(X_test, y_test, censoring_test))
 
-            cv_tracker.log_cv_iteration({'strength': strength},
+            cv_tracker.log_cv_iteration({'strength': self.__strengths},
                                         np.array(train_scores),
                                         np.array(test_scores))
+            i += 1
 
         best_parameters = cv_tracker.find_best_params(sd_adjust=soft_cv)
         best_strength = best_parameters["strength"]
 
         # refit best model on all the data
         self._set('coeffs', np.zeros(self.n_coeffs))
-        self._set("strength", best_strength)
+        self.__strengths = best_strength
         self._set('_prox_obj', self._construct_prox_obj(self.penalty))
 
         self._model_obj.fit(features, labels, censoring)
@@ -281,11 +303,11 @@ class LearnerSCCS(ABC, Base):
                                            bootstrap_confidence)
             self._set('bootstrap_coeffs', bootstrap_ci)
 
-        cv_tracker.log_best_model(self.strength, self.coeffs.tolist(),
+        cv_tracker.log_best_model(self.__strengths, self.coeffs.tolist(),
                                   self.score(),
                                   self.bootstrap_coeffs._asdict())
 
-        return coeffs, cv_tracker.todict()
+        return coeffs, cv_tracker#.todict()
 
     # Utilities #
     def _preprocess_data(self, features, labels, censoring):
@@ -470,22 +492,19 @@ class LearnerSCCS(ABC, Base):
             blocks_size = [block_size] * int(self._n_original_features)
             blocks_start = block_size * np.arange(self._n_original_features,
                                                   dtype='int64')
-            proxs = [
-                ProxTV(self._strength_tv, range=(int(r), int(r + block_size)))
-                for r in blocks_start]
+            if self._strength_tv is not None:
+                proxs = [
+                    ProxTV(self._strength_tv, range=(int(r), int(r + block_size)))
+                    for r in blocks_start]
 
-            if penalty == "TV-GroupL1":
+            if penalty == "TV-GroupL1" and self._strength_group_l1 is not None:
                 proxs.insert(0, ProxGroupL1(self._strength_group_l1,
-                                            blocks_start, blocks_size))
+                                            blocks_start.tolist(), blocks_size))
 
-            # TODO: time drift in this
-            if self.time_drift:
-                start = self._n_original_features * block_size
-                end = self._n_total_features * block_size
-                if penalty == "TV-GroupL1":
-                    proxs.append(ProxGroupL1(self._strength_group_l1,
-                                             [start], [end]))
-                proxs.append(ProxTV(self._strength_tv,
+            if self.time_drift and self._strength_time_drift is not None:
+                start = int(self._n_original_features * block_size)
+                end = int(self._n_total_features * block_size)
+                proxs.append(ProxTV(self._strength_time_drift,
                                     range=(start, end)))
 
         prox_obj = ProxMulti(tuple(proxs))
@@ -534,6 +553,39 @@ class LearnerSCCS(ABC, Base):
 
         return solver_obj
 
+    def _construct_generator_obj(self, strength_tv_range,
+                                 strength_group_l1_range,
+                                 strength_intercept_range,
+                                 logspace=True):
+        generators = []
+        if len(strength_tv_range) == 2:
+            if logspace:
+                generators.append(Log10UniformGenerator(*strength_tv_range))
+            else:
+                generators.append(uniform(strength_tv_range))
+        else:
+            generators.append(null_generator)
+
+        if len(strength_group_l1_range) == 2:
+            if logspace:
+                generators.append(
+                    Log10UniformGenerator(*strength_group_l1_range))
+            else:
+                generators.append(uniform(strength_group_l1_range))
+        else:
+            generators.append(null_generator)
+
+        if len(strength_intercept_range) == 2:
+            if logspace:
+                generators.append(
+                    Log10UniformGenerator(*strength_intercept_range))
+            else:
+                generators.append(uniform(strength_intercept_range))
+        else:
+            generators.append(null_generator)
+
+        return generators
+
     # Properties #
     @property
     def step(self):
@@ -556,22 +608,56 @@ class LearnerSCCS(ABC, Base):
         self._set('_penalty', value)
 
     @property
-    def strength(self):
-        value = [self._strength_tv]
-        if self._strength_group_l1 is not None:
-            value.append(self._strength_group_l1)
-        return tuple(value)
+    def __strengths(self):
+        return Strengths(self._strength_tv,
+                         self._strength_group_l1,
+                         self._strength_time_drift)
 
-    @strength.setter
-    def strength(self, value):
-        if len(value) == 1:
-            self._set('_strength_tv', value[0])
-            self._set('_strength_group_l1', None)
-        elif len(value) == 2:
+    @__strengths.setter
+    def __strengths(self, value):
+        if len(value) == 3:
             self._set('_strength_tv', value[0])
             self._set('_strength_group_l1', value[1])
+            self._set('_strength_time_drift', value[2])
         else:
-            raise ValueError('strength should be a tuple of length 1 or 2.')
+            raise ValueError('strength should be a tuple of length 3.')
+
+    @property
+    def strength_tv(self):
+        return self._strength_tv
+
+    @strength_tv.setter
+    def strength_tv(self, value):
+        if value is None or isinstance(value, float) and value > 0:
+            self._set('_strength_tv', value)
+        else:
+            raise ValueError('strength_tv should be a float greater than zero.')
+        
+
+    @property
+    def strength_group_l1(self):
+        return self._strength_tv
+
+    @strength_group_l1.setter
+    def strength_group_l1(self, value):
+        if value is None or isinstance(value, float) and value > 0:
+            self._set('_strength_group_l1', value)
+        else:
+            raise ValueError('strength_group_l1 should be a float greater '
+                             'than zero.')
+
+    @property
+    def strength_time_drift(self):
+        return self._strength_time_drift
+
+    @strength_time_drift.setter
+    def strength_time_drift(self, value):
+        if value is None or isinstance(value, float) and value > 0:
+            self._set('_strength_time_drift', value)
+        else:
+            raise ValueError('strength_time_drift should be a float greater'
+                             ' than zero.')
+        
 
     @property
     def random_state(self):
@@ -696,12 +782,20 @@ class LongitudinalTimeDrift(LongitudinalPreprocessor):
 
     def _add_intercept(self, arr):
         arr = arr.tocoo()
-        # arr.row = np.hstack([arr.row, 0])
-        # arr.col = np.hstack([arr.col, np.array(self.n_col)])
-        # arr.data = np.hstack([arr.data, 1])
-        # arr._shape = self.new_shape
         arr = sps.hstack([arr, self.time_drift])
         return arr.tocsr()
 
     def _set(self, param, n_row):
         pass
+
+
+class Log10UniformGenerator:
+    """Generate uniformly distributed points in the log10 space."""
+    def __init__(self, min_val, max_val):
+        self.min_val = min_val
+        self.max_val = max_val
+        self.gen = uniform(0, 1)
+
+    def rvs(self, n):
+        return 10 ** (
+        self.min_val + (self.max_val - self.min_val) * self.gen.rvs(n))

@@ -88,7 +88,6 @@ class Test(InferenceTest):
                           time_drift=False)
         lrn.fit(self.features, self.labels, self.censoring)
         score = lrn.score()
-        # TODO: put the product part in class
         tv_range = (-5, -1)
         groupl1_range = (-5, -1)
         # TODO: put this into the fit_kfold_cv method
